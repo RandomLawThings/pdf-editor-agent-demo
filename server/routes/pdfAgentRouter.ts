@@ -32,6 +32,63 @@ function getSessionDocuments(sessionId: string): any[] {
 
 export const pdfAgentRouter = router({
   /**
+   * Validate an Anthropic API key by making a simple API call
+   */
+  validateApiKey: publicProcedure
+    .input(z.object({
+      apiKey: z.string().min(1)
+    }))
+    .mutation(async ({ input }) => {
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+
+      try {
+        const client = new Anthropic({
+          apiKey: input.apiKey
+        });
+
+        // Make a minimal API call to validate the key
+        // Using a tiny max_tokens to minimize cost
+        await client.messages.create({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'Hi' }]
+        });
+
+        return {
+          valid: true,
+          message: 'API key is valid'
+        };
+      } catch (error: any) {
+        // Check for specific error types
+        if (error?.status === 401 || error?.message?.includes('invalid x-api-key')) {
+          return {
+            valid: false,
+            message: 'Invalid API key'
+          };
+        }
+        if (error?.status === 403) {
+          return {
+            valid: false,
+            message: 'API key lacks required permissions'
+          };
+        }
+        if (error?.status === 429) {
+          // Rate limited but key is valid
+          return {
+            valid: true,
+            message: 'API key is valid (rate limited)'
+          };
+        }
+
+        // For other errors, assume key might be valid but there's a network issue
+        return {
+          valid: false,
+          message: error?.message || 'Failed to validate API key'
+        };
+      }
+    }),
+
+  /**
    * Initialize or validate a session (generates session ID if needed)
    */
   initSession: publicProcedure

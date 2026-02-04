@@ -2,19 +2,72 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { DocumentList } from "@/components/DocumentList";
 import { OperationsReport } from "@/components/OperationsReport";
 import { PDFAssistantRuntimeProvider } from "@/components/AssistantRuntimeProvider";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Key, RotateCcw } from "lucide-react";
+import { Key, RotateCcw, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
 export default function Home() {
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyStatus, setApiKeyStatus] = useState<"idle" | "validating" | "valid" | "invalid">("idle");
+  const [validationMessage, setValidationMessage] = useState("");
   const [resetKey, setResetKey] = useState(0); // Used to force re-render and reset state
   const [activeTab, setActiveTab] = useState<"logs" | "viewer">("logs");
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const utils = trpc.useUtils();
+  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const validateApiKeyMutation = trpc.pdfAgent.validateApiKey.useMutation({
+    onSuccess: (result) => {
+      if (result.valid) {
+        setApiKeyStatus("valid");
+        setValidationMessage(result.message);
+        toast.success("API key validated successfully");
+      } else {
+        setApiKeyStatus("invalid");
+        setValidationMessage(result.message);
+        toast.error(result.message);
+      }
+    },
+    onError: (error: any) => {
+      setApiKeyStatus("invalid");
+      setValidationMessage(error.message || "Validation failed");
+      toast.error("Failed to validate API key");
+    }
+  });
+
+  // Debounced validation when API key changes
+  useEffect(() => {
+    // Clear any pending validation
+    if (validationTimeoutRef.current) {
+      clearTimeout(validationTimeoutRef.current);
+    }
+
+    // Reset status when key is cleared or changed
+    if (!apiKey.trim()) {
+      setApiKeyStatus("idle");
+      setValidationMessage("");
+      return;
+    }
+
+    // If key looks like it might be valid (starts with sk-ant), start validating after debounce
+    if (apiKey.trim().length > 10) {
+      setApiKeyStatus("validating");
+      validationTimeoutRef.current = setTimeout(() => {
+        validateApiKeyMutation.mutate({ apiKey: apiKey.trim() });
+      }, 500); // 500ms debounce
+    } else {
+      setApiKeyStatus("idle");
+    }
+
+    return () => {
+      if (validationTimeoutRef.current) {
+        clearTimeout(validationTimeoutRef.current);
+      }
+    };
+  }, [apiKey]);
 
   const clearAllMutation = trpc.pdfAgent.clearAll.useMutation({
     onSuccess: () => {
@@ -39,7 +92,21 @@ export default function Home() {
     setActiveTab("viewer");
   }, []);
 
-  const isDisabled = !apiKey.trim();
+  const isDisabled = apiKeyStatus !== "valid";
+
+  // Render validation status icon
+  const renderStatusIcon = () => {
+    switch (apiKeyStatus) {
+      case "validating":
+        return <Loader2 className="w-4 h-4 text-muted-foreground animate-spin flex-shrink-0" />;
+      case "valid":
+        return <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />;
+      case "invalid":
+        return <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <PDFAssistantRuntimeProvider key={resetKey} provider="claude" apiKey={apiKey}>
@@ -57,13 +124,21 @@ export default function Home() {
               
               <div className="flex items-center gap-2 flex-1 max-w-md">
                 <Key className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <Input
-                  type="password"
-                  placeholder="Enter Anthropic API Key to enable..."
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="h-8 text-sm"
-                />
+                <div className="relative flex-1">
+                  <Input
+                    type="password"
+                    placeholder="Enter Anthropic API Key to enable..."
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className={`h-8 text-sm pr-8 ${
+                      apiKeyStatus === "valid" ? "border-green-500 focus-visible:ring-green-500" :
+                      apiKeyStatus === "invalid" ? "border-red-500 focus-visible:ring-red-500" : ""
+                    }`}
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    {renderStatusIcon()}
+                  </div>
+                </div>
               </div>
 
               <Button
