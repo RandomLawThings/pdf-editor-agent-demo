@@ -1,6 +1,6 @@
 # PDF Editor Agent
 
-A modern, AI-powered PDF editing application with natural language interface. Built with React, shadcn/ui, Tailwind CSS, and Claude AI integration using a hybrid Node.js + Python architecture.
+A modern, AI-powered PDF editing application with natural language interface. Built with React, shadcn/ui, Tailwind CSS, and Claude AI integration.
 
 ## Features
 
@@ -25,22 +25,13 @@ A modern, AI-powered PDF editing application with natural language interface. Bu
 
 ## Architecture
 
-### Hybrid Implementation
+### Implementation
 
-This application uses a **hybrid approach** combining the best of both worlds:
-
-**1. Node.js PDF Libraries (Primary - Fully Implemented)**
-   - `pdf-lib`: Core PDF manipulation (combine, split, reorder, watermark, page numbers)
-   - `pdf-parse`: Text extraction from PDF documents
-   - `pdf2pic`: PDF to image conversion for analysis
-   - `sharp`: High-performance image analysis for whitespace detection
-   - **Advantage**: No external dependencies, works standalone, easy deployment
-
-**2. Python MCP Server (Optional Enhancement)**
-   - Reference implementation from [manus-hackathon](https://github.com/nolanhurlburt/manus-hackathon)
-   - Can be integrated for advanced legal document features
-   - Provides additional validation, citation extraction, and document break detection
-   - **Advantage**: Specialized legal PDF tools, extensible via MCP protocol
+All PDF operations are implemented in Node.js:
+- `pdf-lib`: Core PDF manipulation (combine, split, reorder, watermark, page numbers)
+- `pdf-parse`: Text extraction from PDF documents
+- `pdf2pic`: PDF to image conversion for analysis
+- `sharp`: High-performance image analysis for whitespace detection
 
 ### Technology Stack
 
@@ -79,18 +70,17 @@ server/
   services/
     pdfOperations.ts        # Core PDF manipulation (pdf-lib)
     whitespaceDetection.ts  # Image-based whitespace analysis (sharp)
+    claudeAgent.ts          # Claude AI agent with tool calling
   routes/
-    pdfRouter.ts           # tRPC API endpoints with Claude integration
+    pdfAgentRouter.ts       # tRPC API endpoints
+    pdfAgentRouter.test.ts  # API tests (colocated)
   _core/
-    llm.ts                 # Claude AI integration helper
+    llm.ts                 # LLM integration helper
     trpc.ts                # tRPC configuration
   storage.ts               # S3 file storage helpers
-    
+
 drizzle/
   schema.ts                # Database schema (users table)
-
-tests/
-  server/routes/pdfRouter.test.ts  # Comprehensive API tests
 ```
 
 ## Getting Started
@@ -107,10 +97,7 @@ tests/
 # Install dependencies
 pnpm install
 
-# Approve sharp build scripts (for image processing)
-pnpm approve-builds sharp
-
-# Install system dependencies (Ubuntu/Debian)
+# Install system dependencies for PDF-to-image conversion (Ubuntu/Debian)
 sudo apt-get install poppler-utils graphicsmagick
 
 # Push database schema
@@ -176,7 +163,7 @@ All core PDF operations use `pdf-lib` for maximum compatibility:
 
 ### Whitespace Detection (`server/services/whitespaceDetection.ts`)
 
-Advanced image-based analysis matching Python implementation:
+Advanced image-based analysis:
 
 **checkMarginWhitespace**
 1. Convert PDF pages to PNG images (configurable DPI)
@@ -196,15 +183,14 @@ Advanced image-based analysis matching Python implementation:
 3. Score candidates by preference (bottom-right, top-left, etc.)
 4. Return best region coordinates in inches
 
-### Claude AI Integration (`server/routes/pdfRouter.ts`)
+### Claude AI Integration (`server/services/claudeAgent.ts`)
 
-The chat interface uses structured JSON output from Claude:
+The chat interface uses Claude's tool calling:
 
-1. **System Prompt**: Defines available operations and response format
-2. **JSON Schema**: Enforces structured responses (operation, parameters, explanation)
-3. **Intent Recognition**: Maps natural language to specific PDF operations
-4. **Parameter Extraction**: Pulls operation-specific parameters from context
-5. **Friendly Responses**: Generates user-friendly explanations
+1. **System Prompt**: Defines available PDF operations and context
+2. **Tool Definitions**: Maps operations to callable tools with typed parameters
+3. **Agent Loop**: Executes tools iteratively until task completion
+4. **Result Handling**: Processes tool outputs and generates user-friendly responses
 
 ## Deployment
 
@@ -240,7 +226,6 @@ MIT
 
 ## Acknowledgments
 
-- **Manus Hackathon**: Original Python implementation of legal-pdf-tools
 - **assistant-ui**: Excellent React chat interface library
 - **Claude AI**: Powerful natural language understanding
 - **shadcn/ui**: Beautiful, accessible component library
