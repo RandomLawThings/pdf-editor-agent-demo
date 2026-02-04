@@ -161,84 +161,6 @@ The application will be available at `http://localhost:3000`
 "Add a DRAFT watermark to all pages"
 ```
 
-## API Reference
-
-### tRPC Endpoints
-
-#### `pdf.upload`
-Upload a PDF document to S3 storage
-```typescript
-input: {
-  name: string;
-  size: number;
-  data: string; // base64 encoded PDF
-}
-returns: {
-  id: string;
-  name: string;
-  type: "original";
-  size: string;
-  url: string;
-  fileKey: string;
-}
-```
-
-#### `pdf.list`
-Get all PDF documents for the current user
-```typescript
-returns: Array<{
-  id: string;
-  name: string;
-  type: "original" | "revised";
-  size: string;
-  uploadedAt: Date;
-  url: string;
-}>
-```
-
-#### `pdf.operations`
-Get operation history
-```typescript
-returns: Array<{
-  id: string;
-  type: string;
-  description: string;
-  status: "completed" | "in-progress" | "failed";
-  timestamp: Date;
-  details?: string;
-}>
-```
-
-#### `pdf.chat`
-Send a natural language command to Claude AI
-```typescript
-input: {
-  message: string;
-  documentIds?: string[];
-}
-returns: {
-  message: string;
-  operation: Operation;
-  needsFiles: boolean;
-}
-```
-
-#### `pdf.execute`
-Execute a specific PDF operation
-```typescript
-input: {
-  operation: "combine" | "split" | "reorder" | "watermark" | 
-             "page_numbers" | "extract_text" | "check_margins" | 
-             "check_page_numbers" | "find_whitespace";
-  documentId: string;
-  parameters: Record<string, any>;
-}
-returns: {
-  success: boolean;
-  result: any;
-}
-```
-
 ## Implementation Details
 
 ### PDF Operations (`server/services/pdfOperations.ts`)
@@ -284,28 +206,6 @@ The chat interface uses structured JSON output from Claude:
 4. **Parameter Extraction**: Pulls operation-specific parameters from context
 5. **Friendly Responses**: Generates user-friendly explanations
 
-## Testing
-
-Comprehensive test suite using Vitest (16 tests, all passing):
-
-```bash
-# Run all tests
-pnpm test
-
-# Watch mode for development
-pnpm test --watch
-
-# Coverage report
-pnpm test --coverage
-```
-
-**Test Coverage:**
-- PDF router endpoints (upload, list, operations, chat, execute)
-- Authentication requirements for protected routes
-- Chat message processing with various intents
-- Operation execution with parameter validation
-- Error handling and graceful degradation
-
 ## Deployment
 
 Designed for Manus platform with:
@@ -314,14 +214,6 @@ Designed for Manus platform with:
 - **Managed Database**: MySQL/TiDB with Drizzle ORM
 - **Automatic SSL/TLS**: Secure by default
 - **Environment Variables**: Pre-configured system envs
-
-### Environment Variables (Auto-configured on Manus)
-- `DATABASE_URL` - MySQL connection string
-- `JWT_SECRET` - Session signing secret
-- `BUILT_IN_FORGE_API_URL` - Manus APIs base URL
-- `BUILT_IN_FORGE_API_KEY` - API authentication token
-- `VITE_APP_ID` - OAuth application ID
-- `OAUTH_SERVER_URL` - OAuth backend URL
 
 ## Design Philosophy
 
@@ -341,45 +233,6 @@ Clean, professional interface inspired by Manus:
 - **Optimistic Updates**: Instant UI feedback with background processing
 - **Lazy Loading**: Components load on demand
 - **Type Safety**: End-to-end TypeScript with tRPC
-
-## Future Enhancements
-
-- [ ] PDF preview with page thumbnails
-- [ ] Batch operations on multiple documents
-- [ ] Custom operation workflows
-- [ ] Export operations history as report
-- [ ] Advanced text search across documents
-- [ ] OCR for scanned documents
-- [ ] Digital signature support
-- [ ] Form field editing
-- [ ] Annotation tools
-
-## MCP Server Integration (Optional)
-
-To integrate the Python FastMCP server from manus-hackathon:
-
-1. Clone the hackathon repo: `gh repo clone nolanhurlburt/manus-hackathon`
-2. Install Python dependencies: `pip install -r requirements.txt`
-3. Start the MCP server: `python -m legal_pdf_tools.server`
-4. Update `server/routes/pdfRouter.ts` to call MCP endpoints
-5. Add MCP client library: `pnpm add @modelcontextprotocol/client`
-
-This provides additional features:
-- Document break detection with AI
-- Citation extraction (legal documents)
-- Bookmark and link validation
-- Word to PDF conversion
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and add tests
-4. Run tests: `pnpm test`
-5. Type check: `pnpm check`
-6. Format code: `pnpm format`
-7. Commit with clear message
-8. Push and create a Pull Request
 
 ## License
 
